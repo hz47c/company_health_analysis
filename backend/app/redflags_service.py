@@ -32,13 +32,13 @@ class RedFlagsService:
             'totalStockholdersEquity': [],
             
             # Income Statement
-            'Revenue': [],
-            'Cost of Revenue': [],
-            'Gross Profit': [],
-            'Operating Expenses': [],
-            'EBIT': [],
-            'Interest Expense': [],
-            'Net Income': [],
+            'revenue': [],
+            'costOfRevenue': [],
+            'grossProfit': [],
+            'operatingExpenses': [],
+            'operatingIncome': [],
+            'interestExpense': [],
+            'netIncome': [],
             'weightedAverageShsOut': [],
             
             # Cash Flow Statement
@@ -66,13 +66,13 @@ class RedFlagsService:
             data['totalStockholdersEquity'].append(record.total_stockholders_equity or np.nan)
 
         for record in income_statements:
-            data['Revenue'].append(record.revenue or np.nan)
-            data['Cost of Revenue'].append(record.cost_of_revenue or np.nan)
-            data['Gross Profit'].append(record.gross_profit or np.nan)
-            data['Operating Expenses'].append(record.operating_expenses or np.nan)
-            data['EBIT'].append(record.operating_income or np.nan)
-            data['Interest Expense'].append(record.interest_expense or np.nan)
-            data['Net Income'].append(record.net_income or np.nan)
+            data['revenue'].append(record.revenue or np.nan)
+            data['costOfRevenue'].append(record.cost_of_revenue or np.nan)
+            data['grossProfit'].append(record.gross_profit or np.nan)
+            data['operatingExpenses'].append(record.operating_expenses or np.nan)
+            data['operatingIncome'].append(record.operating_income or np.nan)
+            data['interestExpense'].append(record.interest_expense or np.nan)
+            data['netIncome'].append(record.net_income or np.nan)
             data['weightedAverageShsOut'].append(record.weighted_average_shs_out or np.nan)
 
         for record in cash_flows:
@@ -87,13 +87,17 @@ class RedFlagsService:
 
     def analyze_red_flags(self, ticker):
         data = self.get_financial_data_as_dataframe(ticker)
+
+        # Sort data by calendar year to ensure chronological order
+        data = data.sort_values('calendarYear').reset_index(drop=True)
+
         results = []
 
         # List of analysis functions to execute
         analysis_functions = [
             self.analyze_declining_revenue_increasing_income,
             self.analyze_debt_to_equity_ratio,
-            self.analyze_cash_flow_vs_net_income,
+            self.analyze_declining_operating_cash_flow_increasing_income,
             self.analyze_accounts_receivable_vs_sales,
             self.analyze_gross_profit_margin,
             self.analyze_inventory_turnover,
@@ -102,7 +106,7 @@ class RedFlagsService:
             self.analyze_increasing_dso,
             self.analyze_negative_free_cash_flow,
             self.analyze_high_dividend_payout_poor_cash_flow,
-            self.analyze_frequent_equity_issuances,
+            self.analyze_large_equity_issuances,
             self.analyze_short_term_debt
         ]
 
@@ -110,55 +114,84 @@ class RedFlagsService:
             result = function(data)
             if result:
                 results.append(result)
+                results.append("_____________________________________")
 
         return "\n\n".join(results) if results else "No red flags identified."
+
+    def format_number(self, num):
+        if abs(num) >= 1_000_000_000:
+            value = round(num / 1_000_000_000, 2)
+            return f"{value:.2f}".rstrip('0').rstrip('.') + " billion"
+        elif abs(num) >= 1_000_000:
+            value = round(num / 1_000_000, 2)
+            return f"{value:.2f}".rstrip('0').rstrip('.') + " million"
+        else:
+            value = round(num, 2)
+            return f"{value:.2f}".rstrip('0').rstrip('.')
+
+    def format_percent(self, percent):
+        formatted = f"{round(percent, 2):.2f}".rstrip('0').rstrip('.')
+        return formatted
+
+    # Individual red flag analysis functions
 
     ############################ RF1 ############################
 
     def analyze_declining_revenue_increasing_income(self, data):
+        
+        # Ensure necessary columns are present
+        if 'revenue' not in data.columns or 'netIncome' not in data.columns:
+            return "Revenue and Net Income analysis requires 'revenue' and 'netIncome' columns."
+        
         # Calculate percentage change for Revenue and Net Income
-        revenue_pct_change = data['Revenue'].pct_change(fill_method=None).fillna(0)
-        income_pct_change = data['Net Income'].pct_change(fill_method=None).fillna(0)
-
-        # Check for declining revenue and increasing net income
+        revenue_pct_change = data['revenue'].replace(0, np.nan).pct_change()
+        income_pct_change = data['netIncome'].replace(0, np.nan).pct_change()
+        
+        # Check for declining revenue
         declining_revenue = revenue_pct_change < 0
-        increasing_income = income_pct_change > 0
+        
+        # Check for increasing or improving net income
+        increasing_income = (income_pct_change > 0) & (data['netIncome'] > 0)
+        worsening_income = (income_pct_change < 0) & (data['netIncome'] < 0)
 
-        # Find the years where both conditions are met
-        red_flag_years = data.loc[declining_revenue & increasing_income, 'calendarYear'].tolist()
-        revenue_changes = revenue_pct_change[declining_revenue & increasing_income].tolist()
-        income_changes = income_pct_change[declining_revenue & increasing_income].tolist()
+        # Find the years where revenue declines but net income improves
+        red_flag_years = data.loc[declining_revenue & increasing_income & ~worsening_income, 'calendarYear'].tolist()
+        revenue_changes = revenue_pct_change[declining_revenue & increasing_income & ~worsening_income].tolist()
+        income_changes = income_pct_change[declining_revenue & increasing_income & ~worsening_income].tolist()
 
         if red_flag_years:
             red_flags = []
             for year, rev_change, inc_change in zip(red_flag_years, revenue_changes, income_changes):
-                red_flags.append(f"     > FY {year}: Revenue ↓ {abs(rev_change)*100:.2f}%, Net Income ↑ {inc_change*100:.2f}%")
+                revenue = data.loc[data['calendarYear'] == year, 'revenue'].values[0]
+                netIncome = data.loc[data['calendarYear'] == year, 'netIncome'].values[0]
+                red_flags.append(f"FY {year}: Revenue = {self.format_number(revenue)} (↓ {self.format_percent(abs(rev_change) * 100)}%), Net Income = {self.format_number(netIncome)} (↑ {self.format_percent(inc_change * 100)}%)")
 
             # Format the output
             details = "\n".join(red_flags)
             return (
-                " ! Declining Revenue with Increasing Net Income\n\n"
-                "   • Possible reliance on non-operational income (e.g., asset sales) or aggressive cost-cutting measures that may not be sustainable.\n"
-                "   • It may mask underlying issues in the core business operations, indicating potential future declines in profitability once temporary measures fade.\n\n"
+                "!!! Declining Revenue with Increasing Net Income\n\n"
+                "Possible reliance on non-operational income (e.g., asset sales) or aggressive cost-cutting measures that may not be sustainable.\n"
+                "It may mask underlying issues in the core business operations, indicating potential future declines in profitability once temporary measures fade.\n\n"
                 f"{details}"
             )
-        return None  # Return None if no red flag
+        return None
 
     ############################ RF2 ############################
 
     def analyze_debt_to_equity_ratio(self, data):
-        # Define the threshold for high leverage (adjustable based on industry)
-        high_leverage_threshold = 2  # Example: Debt-to-Equity ratio above 2 is considered high
 
         # Ensure necessary columns are present
         if 'totalDebt' not in data.columns or 'totalStockholdersEquity' not in data.columns:
             return "Debt-to-Equity analysis requires 'totalDebt' and 'totalStockholdersEquity' columns."
+        
+        # Define the threshold for high leverage (adjustable based on industry)
+        high_leverage_threshold = 2  # Example: Debt-to-Equity ratio above 2 is considered high
 
         # Calculate Debt-to-Equity Ratio
-        debt_to_equity = data['totalDebt'] / data['totalStockholdersEquity']
+        debt_to_equity = data['totalDebt'] / data['totalStockholdersEquity'].replace(0, np.nan)
 
         # Calculate percentage change in Debt-to-Equity Ratio
-        debt_to_equity_pct_change = debt_to_equity.pct_change(fill_method=None).fillna(0)
+        debt_to_equity_pct_change = debt_to_equity.pct_change()
         increasing_ratio = debt_to_equity_pct_change > 0
 
         # Find the years where the ratio is already high or went from moderate to high
@@ -179,139 +212,140 @@ class RedFlagsService:
             red_flags = []
             for year, change in zip(red_flag_years, ratio_changes):
                 ratio_value = debt_to_equity[data['calendarYear'] == year].values[0]
-                red_flags.append(f"     > FY {year}: Debt-to-Equity Ratio = {ratio_value:.2f} (↑ {change*100:.2f}%)")
+                red_flags.append(f"FY {year}: Debt-to-Equity Ratio = {ratio_value:.2f} (↑ {self.format_percent(change * 100)}%)")
 
             # Format the output
             details = "\n".join(red_flags)
             return (
-                " ! High or Increasing Debt Levels Relative to Equity\n\n"
-                "   • Heightened financial risk due to increased leverage.\n"
-                "   • The company may be over-reliant on debt financing, making it vulnerable to interest rate hikes and economic downturns.\n"
-                "   • This can limit future borrowing capacity and increase default risk.\n\n"
+                "!!! High or Increasing Debt Levels Relative to Equity\n\n"
+                "Heightened financial risk due to increased leverage.\n"
+                "The company may be over-reliant on debt financing, making it vulnerable to interest rate hikes and economic downturns.\n"
+                "This can limit future borrowing capacity and increase default risk.\n\n"
                 f"{details}"
             )
-        return None  # Return None if no red flag
+        return None
 
     ############################ RF3 ############################
 
-    def analyze_cash_flow_vs_net_income(self, data):
+    def analyze_declining_operating_cash_flow_increasing_income(self, data):
+        
         # Ensure necessary columns are present
-        if 'operatingCashFlow' not in data.columns or 'Net Income' not in data.columns:
-            return "Cash flow analysis requires 'operatingCashFlow' and 'Net Income' columns."
-
+        if 'operatingCashFlow' not in data.columns or 'netIncome' not in data.columns:
+            return "Operating Cash Flow and Net Income analysis requires 'operatingCashFlow' and 'netIncome' columns."
+        
         # Calculate percentage change for Operating Cash Flow and Net Income
-        cash_flow_pct_change = data['operatingCashFlow'].pct_change(fill_method=None).fillna(0)
-        income_pct_change = data['Net Income'].pct_change(fill_method=None).fillna(0)
+        operating_cash_flow_pct_change = data['operatingCashFlow'].replace(0, np.nan).pct_change()
+        income_pct_change = data['netIncome'].replace(0, np.nan).pct_change()
+        
+        # Check for declining Operating Cash Flow
+        declining_operating_cash_flow = operating_cash_flow_pct_change < 0
+        
+        # Check for increasing or improving net income
+        increasing_income = (income_pct_change > 0) & (data['netIncome'] > 0)
+        worsening_income = (income_pct_change < 0) & (data['netIncome'] < 0)
 
-        # Check for declining cash flow and increasing net income
-        declining_cash_flow = cash_flow_pct_change < 0
-        increasing_income = income_pct_change > 0
-
-        # Find the years where the red flag condition is met
-        red_flag_years = data.loc[declining_cash_flow & increasing_income, 'calendarYear'].tolist()
-        cash_flow_changes = cash_flow_pct_change[declining_cash_flow & increasing_income].tolist()
-        income_changes = income_pct_change[declining_cash_flow & increasing_income].tolist()
+        # Find the years where Operating Cash Flow declines but net income improves
+        red_flag_years = data.loc[declining_operating_cash_flow & increasing_income & ~worsening_income, 'calendarYear'].tolist()
+        operating_cash_flow_changes = operating_cash_flow_pct_change[declining_operating_cash_flow & increasing_income & ~worsening_income].tolist()
+        income_changes = income_pct_change[declining_operating_cash_flow & increasing_income & ~worsening_income].tolist()
 
         if red_flag_years:
             red_flags = []
-            for year, cash_change, inc_change in zip(red_flag_years, cash_flow_changes, income_changes):
-                red_flags.append(f"     > FY {year}: Net Income ↑ {inc_change*100:.2f}%, Cash Flow ↓ {abs(cash_change)*100:.2f}%")
+            for year, rev_change, inc_change in zip(red_flag_years, operating_cash_flow_changes, income_changes):
+                operatingCashFlow = data.loc[data['calendarYear'] == year, 'operatingCashFlow'].values[0]
+                netIncome = data.loc[data['calendarYear'] == year, 'netIncome'].values[0]
+                red_flags.append(f"FY {year}: Net Income = {self.format_number(netIncome)} (↑ {self.format_percent(inc_change * 100)}%), Operating Cash Flow = {self.format_number(operatingCashFlow)} (↓ {self.format_percent(abs(rev_change) * 100)}%)")
 
             # Format the output
             details = "\n".join(red_flags)
             return (
-                " ! Decreasing Cash Flow from Operations with Rising Net Income\n\n"
-                "   • Potential earnings quality issues, suggesting that reported net income isn't translating into actual cash.\n"
-                "   • This discrepancy could be due to non-cash revenue recognition or changes in working capital, raising concerns about the sustainability of earnings.\n\n"
+                "!!! Rising Net Income with Decreasing Cash Flow from Operations\n\n"
+                "Potential earnings quality issues, suggesting that reported net income isn't translating into actual cash.\n"
+                "This discrepancy could be due to non-cash revenue recognition or changes in working capital, raising concerns about the sustainability of earnings.\n\n"
                 f"{details}"
             )
-        return None  # Return None if no red flag
+        return None
 
     ############################ RF4 ############################
 
-    def analyze_accounts_receivable_vs_sales(self, data, caution_threshold=0.10, red_flag_threshold=0.20, critical_threshold=0.30):
+    def analyze_accounts_receivable_vs_sales(self, data, caution_threshold=0.15, red_flag_threshold=0.20, critical_threshold=0.30):
+        
         # Ensure necessary columns are present
-        if 'netReceivables' not in data.columns or 'Revenue' not in data.columns:
-            return "Accounts Receivable analysis requires 'netReceivables' and 'Revenue' columns."
+        if 'netReceivables' not in data.columns or 'revenue' not in data.columns:
+            return "Accounts Receivable analysis requires 'netReceivables' and 'revenue' columns."
 
         # Calculate the Accounts Receivable to Sales Ratio
-        receivable_to_sales_ratio = data['netReceivables'] / data['Revenue']
+        receivable_to_sales_ratio = data['netReceivables'] / data['revenue'].replace(0, np.nan)
 
         # Calculate percentage change in Accounts Receivable to Sales Ratio
-        receivable_to_sales_pct_change = receivable_to_sales_ratio.pct_change(fill_method=None).fillna(0)
+        receivable_to_sales_pct_change = receivable_to_sales_ratio.pct_change()
+
+        # Remove NaN changes (typically the first year) from the analysis
+        receivable_to_sales_pct_change.iloc[0] = None  # Set the first year explicitly to None
 
         # Classify years based on the value of Accounts Receivable to Sales Ratio
-        caution_years = data.loc[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold), 'calendarYear'].tolist()
-        caution_ratios = receivable_to_sales_ratio[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold)].tolist()
-        caution_changes = receivable_to_sales_pct_change[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold)].tolist()
+        caution_years = data.loc[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold) & receivable_to_sales_pct_change.notna(), 'calendarYear'].tolist()
+        caution_ratios = receivable_to_sales_ratio[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold) & receivable_to_sales_pct_change.notna()].tolist()
+        caution_changes = receivable_to_sales_pct_change[(receivable_to_sales_ratio >= caution_threshold) & (receivable_to_sales_ratio < red_flag_threshold) & receivable_to_sales_pct_change.notna()].tolist()
 
-        red_flag_years = data.loc[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold), 'calendarYear'].tolist()
-        red_flag_ratios = receivable_to_sales_ratio[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold)].tolist()
-        red_flag_changes = receivable_to_sales_pct_change[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold)].tolist()
+        red_flag_years = data.loc[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold) & receivable_to_sales_pct_change.notna(), 'calendarYear'].tolist()
+        red_flag_ratios = receivable_to_sales_ratio[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold) & receivable_to_sales_pct_change.notna()].tolist()
+        red_flag_changes = receivable_to_sales_pct_change[(receivable_to_sales_ratio >= red_flag_threshold) & (receivable_to_sales_ratio < critical_threshold) & receivable_to_sales_pct_change.notna()].tolist()
 
-        critical_years = data.loc[receivable_to_sales_ratio >= critical_threshold, 'calendarYear'].tolist()
-        critical_ratios = receivable_to_sales_ratio[receivable_to_sales_ratio >= critical_threshold].tolist()
-        critical_changes = receivable_to_sales_pct_change[receivable_to_sales_ratio >= critical_threshold].tolist()
+        critical_years = data.loc[(receivable_to_sales_ratio >= critical_threshold) & receivable_to_sales_pct_change.notna(), 'calendarYear'].tolist()
+        critical_ratios = receivable_to_sales_ratio[(receivable_to_sales_ratio >= critical_threshold) & receivable_to_sales_pct_change.notna()].tolist()
+        critical_changes = receivable_to_sales_pct_change[(receivable_to_sales_ratio >= critical_threshold) & receivable_to_sales_pct_change.notna()].tolist()
 
         output = []
 
         # Prepare output for all zones only if bad ratio is met
         if caution_years or red_flag_years or critical_years:
-            output.append(" ! Growing Accounts Receivable as a Percentage of Sales\n")
-            output.append("   • Indicates worsening collection issues or overly loose credit terms, potentially leading to cash flow problems.")
-            output.append("   • Suggests rising bad debt expenses and declining credit quality of customers.\n")
+            output.append("!!! Growing Accounts Receivable as a Percentage of Sales\n")
+            output.append("Indicates worsening collection issues or overly loose credit terms, potentially leading to cash flow problems.")
+            output.append("Suggests rising bad debt expenses and declining credit quality of customers.")
 
         # Caution zone output
         if caution_years:
             caution_flags = []
             for year, ratio, change in zip(caution_years, caution_ratios, caution_changes):
-                if change != 0:  # Skip 0% change
-                    arrow = "↑" if change > 0 else "↓"
-                    caution_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}% ({arrow} {abs(change)*100:.2f}%)")
-                else:
-                    caution_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}%")  # Display only ratio if 0% change
+                arrow = "↑" if change > 0 else "↓"
+                caution_flags.append(f"FY {year}: Accounts Receivable to Sales = {self.format_percent(ratio * 100)}% ({arrow} {self.format_percent(abs(change) * 100)}%)")
             if caution_flags:
-                output.append(f"\n     Caution Zone: Accounts Receivable to Sales between 10%-20%\n{'\n'.join(caution_flags)}")
+                output.append(f"\nCaution Zone: Accounts Receivable to Sales between 15%-20%\n{'\n'.join(caution_flags)}")
 
         # Red flag zone output
         if red_flag_years:
             red_flags = []
             for year, ratio, change in zip(red_flag_years, red_flag_ratios, red_flag_changes):
-                if change != 0:  # Skip 0% change
-                    arrow = "↑" if change > 0 else "↓"
-                    red_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}% ({arrow} {abs(change)*100:.2f}%)")
-                else:
-                    red_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}%")  # Display only ratio if 0% change
+                arrow = "↑" if change > 0 else "↓"
+                red_flags.append(f"FY {year}: Accounts Receivable to Sales = {self.format_percent(ratio * 100)}% ({arrow} {self.format_percent(abs(change) * 100)}%)")
             if red_flags:
-                output.append(f"\n     Red Flag: Accounts Receivable to Sales between 20%-30%\n{'\n'.join(red_flags)}")
+                output.append(f"\nRed Flag: Accounts Receivable to Sales between 20%-30%\n{'\n'.join(red_flags)}")
 
         # Critical zone output
         if critical_years:
             critical_flags = []
             for year, ratio, change in zip(critical_years, critical_ratios, critical_changes):
-                if change != 0:  # Skip 0% change
-                    arrow = "↑" if change > 0 else "↓"
-                    critical_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}% ({arrow} {abs(change)*100:.2f}%)")
-                else:
-                    critical_flags.append(f"     > FY {year}: Accounts Receivable to Sales = {ratio*100:.2f}%")  # Display only ratio if 0% change
+                arrow = "↑" if change > 0 else "↓"
+                critical_flags.append(f"FY {year}: Accounts Receivable to Sales = {self.format_percent(ratio * 100)}% ({arrow} {self.format_percent(abs(change) * 100)}%)")
             if critical_flags:
-                output.append(f"\n     Critical Zone: Accounts Receivable to Sales above 30%\n{'\n'.join(critical_flags)}")
+                output.append(f"\nCritical Zone: Accounts Receivable to Sales above 30%\n{'\n'.join(critical_flags)}")
 
-        # Join the output list into a single string
-        return '\n'.join(output) if output else None  # Return formatted output or None if no caution or red flags
+        return '\n'.join(output) if output else None
 
     ############################ RF5 ############################
 
     def analyze_gross_profit_margin(self, data, caution_threshold=-0.10, red_flag_threshold=-0.20, critical_threshold=-0.30):
+        
         # Ensure necessary columns are present
-        if 'Gross Profit' not in data.columns or 'Revenue' not in data.columns:
-            return "Gross Profit Margin analysis requires 'Gross Profit' and 'Revenue' columns."
+        if 'grossProfit' not in data.columns or 'revenue' not in data.columns:
+            return "Gross Profit Margin analysis requires 'grossProfit' and 'revenue' columns."
 
         # Calculate the Gross Profit Margin for each year
-        gross_profit_margin = data['Gross Profit'] / data['Revenue']
+        data['gross_profit_margin'] = data['grossProfit'] / data['revenue'].replace(0, np.nan)
 
         # Calculate percentage change in Gross Profit Margin year-over-year
-        margin_pct_change = gross_profit_margin.pct_change(fill_method=None).fillna(0)
+        margin_pct_change = data['gross_profit_margin'].pct_change()
 
         # Identify years for Caution, Red Flag, and Critical Zones
         caution_years = data.loc[(margin_pct_change <= caution_threshold) & (margin_pct_change > red_flag_threshold), 'calendarYear'].tolist()
@@ -327,46 +361,56 @@ class RedFlagsService:
 
         # Prepare output for all zones
         if caution_years or red_flag_years or critical_years:
-            output.append(" ! Decreasing Gross Profit Margins\n")
-            output.append("   • Suggests worsening efficiency or rising costs of goods sold, which can erode profitability.")
-            output.append("   • It may indicate market pressures or competitive challenges affecting pricing power, requiring a strategic review to address cost management.\n")
+            output.append("!!! Decreasing Gross Profit Margins\n")
+            output.append("Suggests worsening efficiency or rising costs of goods sold, which can erode profitability.")
+            output.append("It may indicate market pressures or competitive challenges affecting pricing power, requiring a strategic review to address cost management.")
 
         # Caution zone output
         if caution_years:
             caution_flags = []
             for year, change in zip(caution_years, caution_changes):
-                caution_flags.append(f"     > FY {year}: Gross Profit Margin ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Caution Zone: Gross Profit Margin decreased between 10%-20%\n{'\n'.join(caution_flags)}")
+                gross_profit_margin = data.loc[data['calendarYear'] == year, 'gross_profit_margin'].values[0]
+                caution_flags.append(f"FY {year}: Gross Profit Margin = {self.format_percent(gross_profit_margin * 100)}% (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nCaution Zone: Gross Profit Margin decreased between 10%-20%\n{'\n'.join(caution_flags)}")
 
         # Red flag zone output
         if red_flag_years:
             red_flags = []
             for year, change in zip(red_flag_years, red_flag_changes):
-                red_flags.append(f"     > FY {year}: Gross Profit Margin ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Red Flag: Gross Profit Margin decreased above 20%\n{'\n'.join(red_flags)}")
+                gross_profit_margin = data.loc[data['calendarYear'] == year, 'gross_profit_margin'].values[0]
+                red_flags.append(f"FY {year}: Gross Profit Margin = {self.format_percent(gross_profit_margin * 100)}% (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nRed Flag: Gross Profit Margin decreased above 20%\n{'\n'.join(red_flags)}")
 
         # Critical zone output
         if critical_years:
             critical_flags = []
             for year, change in zip(critical_years, critical_changes):
-                critical_flags.append(f"     > FY {year}: Gross Profit Margin ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Critical Zone: Gross Profit Margin decreased above 30%\n{'\n'.join(critical_flags)}")
+                gross_profit_margin = data.loc[data['calendarYear'] == year, 'gross_profit_margin'].values[0]
+                critical_flags.append(f"FY {year}: Gross Profit Margin = {self.format_percent(gross_profit_margin * 100)}% (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nCritical Zone: Gross Profit Margin decreased above 30%\n{'\n'.join(critical_flags)}")
 
-        # Join the output list into a single string
-        return '\n'.join(output) if output else None  # Return formatted output or None if no caution or red flags
+        # Flag years with persistently negative gross profit margins
+        negative_margin_years = data.loc[data['gross_profit_margin'] < 0, 'calendarYear'].tolist()
+        if negative_margin_years:
+            output.append("\n!!! Persistently Negative Gross Profit Margins\n")
+            output.append("The following years had negative gross profit margins, indicating a loss on sales before other expenses:\n")
+            output.append("   " + ", ".join([f"FY {year}" for year in negative_margin_years]))
+
+        return '\n'.join(output) if output else None
 
     ############################ RF6 ############################
 
     def analyze_inventory_turnover(self, data, caution_threshold=-0.05, red_flag_threshold=-0.10, critical_threshold=-0.20):
+        
         # Ensure necessary columns are present
-        if 'inventory' not in data.columns or 'Cost of Revenue' not in data.columns:
-            return "Inventory Turnover analysis requires 'inventory' and 'Cost of Revenue' columns."
+        if 'inventory' not in data.columns or 'costOfRevenue' not in data.columns:
+            return "Inventory Turnover analysis requires 'inventory' and 'costOfRevenue' columns."
 
         # Calculate Inventory Turnover Ratio
-        inventory_turnover = data['Cost of Revenue'] / data['inventory']
+        data['inventory_turnover'] = data['costOfRevenue'] / data['inventory'].replace(0, np.nan)
 
         # Calculate percentage change in Inventory Turnover Ratio
-        turnover_pct_change = inventory_turnover.pct_change(fill_method=None).fillna(0)
+        turnover_pct_change = data['inventory_turnover'].pct_change()
 
         # Identify years where turnover decreased in Caution, Red Flag, and Critical Zones
         caution_years = data.loc[(turnover_pct_change <= caution_threshold) & (turnover_pct_change > red_flag_threshold), 'calendarYear'].tolist()
@@ -382,40 +426,46 @@ class RedFlagsService:
 
         # Prepare output for decreasing turnover ratios
         if caution_years or red_flag_years or critical_years:
-            output.append(" ! Increasing Inventory Levels Relative to Sales\n")
-            output.append("   • Indicates potential overstocking or declining demand for products, which can lead to obsolescence.")
-            output.append("   • It can tie up capital that could be used for growth or other investments, posing risks to cash flow and profitability.\n")
+            output.append("!!! Increasing Inventory Levels Relative to Sales\n")
+            output.append("Indicates potential overstocking or declining demand for products, which can lead to obsolescence.")
+            output.append("It can tie up capital that could be used for growth or other investments, posing risks to cash flow and profitability.")
 
         # Caution zone output
         if caution_years:
             caution_flags = []
             for year, change in zip(caution_years, caution_changes):
-                caution_flags.append(f"     > FY {year}: Inventory Turnover ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Caution Zone: Inventory Turnover decreased between 5%-10%\n{'\n'.join(caution_flags)}")
+                inventory_turnover = data.loc[data['calendarYear'] == year, 'inventory_turnover'].values[0]
+                caution_flags.append(f"FY {year}: Inventory Turnover = {inventory_turnover:.2f} (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nCaution Zone: Inventory Turnover decreased between 5%-10%\n{'\n'.join(caution_flags)}")
 
         # Red flag zone output
         if red_flag_years:
             red_flags = []
             for year, change in zip(red_flag_years, red_flag_changes):
-                red_flags.append(f"     > FY {year}: Inventory Turnover ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Red Flag: Inventory Turnover decreased above 10%\n{'\n'.join(red_flags)}")
+                inventory_turnover = data.loc[data['calendarYear'] == year, 'inventory_turnover'].values[0]
+                red_flags.append(f"FY {year}: Inventory Turnover = {inventory_turnover:.2f} (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nRed Flag: Inventory Turnover decreased above 10%\n{'\n'.join(red_flags)}")
 
         # Critical zone output
         if critical_years:
             critical_flags = []
             for year, change in zip(critical_years, critical_changes):
-                critical_flags.append(f"     > FY {year}: Inventory Turnover ↓ {abs(change) * 100:.2f}%")
-            output.append(f"\n     Critical Zone: Inventory Turnover decreased above 20%\n{'\n'.join(critical_flags)}")
+                inventory_turnover = data.loc[data['calendarYear'] == year, 'inventory_turnover'].values[0]
+                critical_flags.append(f"FY {year}: Inventory Turnover = {inventory_turnover:.2f} (↓ {self.format_percent(abs(change) * 100)}%)")
+            output.append(f"\nCritical Zone: Inventory Turnover decreased above 20%\n{'\n'.join(critical_flags)}")
 
-        # Join the output list into a single string
-        return '\n'.join(output) if output else None  # Return formatted output or None if no issues
+        return '\n'.join(output) if output else None
 
     ############################ RF7 ############################
 
     def analyze_goodwill_increase(self, data, caution_threshold=0.10, red_flag_threshold=0.20):
-
+        
+        # Ensure necessary columns are present
+        if 'goodwill' not in data.columns:
+            return "Goodwill analysis requires 'goodwill' column."
+        
         # Calculate year-over-year percentage change in Goodwill
-        goodwill_pct_change = data['goodwill'].pct_change(fill_method=None).fillna(0)
+        goodwill_pct_change = data['goodwill'].replace(0, np.nan).pct_change()
 
         # Identify years where the YoY increase falls within the caution or red flag thresholds
         caution_years = data.loc[(goodwill_pct_change > caution_threshold) & (goodwill_pct_change <= red_flag_threshold), 'calendarYear'].tolist()
@@ -430,126 +480,115 @@ class RedFlagsService:
         if caution_years:
             caution_flags = []
             for year, change in zip(caution_years, caution_changes):
-                caution_flags.append(f"     > FY {year}: Goodwill ↑ {change * 100:.2f}%")
-            output.append(f"\n     Caution Zone: Goodwill increased between 10%-20%\n{'\n'.join(caution_flags)}")
+                goodwill = data.loc[data['calendarYear'] == year, 'goodwill'].values[0]
+                caution_flags.append(f"FY {year}: Goodwill = {self.format_number(goodwill)} (↑ {self.format_percent(change * 100)}%)")
+            output.append(f"\n\nCaution Zone: Goodwill increased between 10%-20%\n{'\n'.join(caution_flags)}")
 
         # Red flag zone output
         if red_flag_years:
             red_flags = []
             for year, change in zip(red_flag_years, red_flag_changes):
-                red_flags.append(f"     > FY {year}: Goodwill ↑ {change * 100:.2f}%")
-            output.append(f"\n     Red Flag: Goodwill increased above 20%\n{'\n'.join(red_flags)}")
+                goodwill = data.loc[data['calendarYear'] == year, 'goodwill'].values[0]
+                red_flags.append(f"FY {year}: Goodwill = {self.format_number(goodwill)} (↑ {self.format_percent(change * 100)}%)")
+            output.append(f"\n\nRed Flag: Goodwill increased above 20%\n{'\n'.join(red_flags)}")
 
         # If there are caution or red flags, add the warning text
         if output:
             warning_text = (
-                " ! Large Increases in Goodwill or Intangible Assets\n\n"
-                "   • Risk of overpaying for acquisitions, leading to future impairment charges if expected synergies or performance do not materialize\n"
-                "   • This can negatively impact future earnings and may suggest aggressive growth strategies without adequate due diligence\n\n"
+                "!!! Large Increases in Goodwill or Intangible Assets\n\n"
+                "Risk of overpaying for acquisitions, leading to future impairment charges if expected synergies or performance do not materialize.\n"
+                "This can negatively impact future earnings and may suggest aggressive growth strategies without adequate due diligence."
             )
             
             return f"{warning_text}{''.join(output)}"
-        return None  # Return None if no red flag
+        return None
 
     ############################ RF8 ############################
 
     def analyze_interest_coverage(self, data, caution_threshold=2.5, red_flag_threshold=1.5, critical_threshold=1.0):
+        
         # Ensure necessary columns are present
-        if 'EBIT' not in data.columns or 'Interest Expense' not in data.columns:
-            return "Interest Coverage analysis requires 'EBIT' and 'Interest Expense' columns."
+        if 'operatingIncome' not in data.columns or 'interestExpense' not in data.columns:
+            return "Interest Coverage analysis requires 'operatingIncome' and 'interestExpense' columns."
 
         # Calculate Interest Coverage Ratio
-        data['Interest Coverage'] = data['EBIT'] / data['Interest Expense']
+        data['Interest Coverage'] = data['operatingIncome'] / data['interestExpense'].replace(0, np.nan)
 
-        # Identify years where the coverage falls into caution, red flag, or critical zones
-        caution_years = data.loc[(data['Interest Coverage'] <= caution_threshold) & (data['Interest Coverage'] > red_flag_threshold), 'calendarYear'].tolist()
-        caution_values = data.loc[(data['Interest Coverage'] <= caution_threshold) & (data['Interest Coverage'] > red_flag_threshold), 'Interest Coverage'].tolist()
-        
-        red_flag_years = data.loc[(data['Interest Coverage'] <= red_flag_threshold) & (data['Interest Coverage'] > critical_threshold), 'calendarYear'].tolist()
-        red_flag_values = data.loc[(data['Interest Coverage'] <= red_flag_threshold) & (data['Interest Coverage'] > critical_threshold), 'Interest Coverage'].tolist()
-        
-        critical_years = data.loc[data['Interest Coverage'] <= critical_threshold, 'calendarYear'].tolist()
-        critical_values = data.loc[data['Interest Coverage'] <= critical_threshold, 'Interest Coverage'].tolist()
-
+        # Initialize output
         output = []
 
-        # Prepare output
-        if caution_years or red_flag_years or critical_years:
-            output.append(" ! Declining Interest Coverage Ratio\n")
-            output.append("   • Signals growing difficulties in meeting interest obligations, raising default risk.")
-            output.append("   • A declining ratio can impact credit ratings and future borrowing costs, potentially limiting financial flexibility.\n")
+        # Function to generate report for a specific zone
+        def generate_zone_report(zone_name, condition, threshold_range=None):
+            flags = []
+            for i, row in data[condition].iterrows():
+                year = row['calendarYear']
+                coverage = row['Interest Coverage']
 
-        # Caution zone output
-        if caution_years:
-            caution_flags = []
-            for i, year in enumerate(caution_years):
-                previous_year_value = data.loc[data['calendarYear'] == year - 1, 'Interest Coverage'].values[0] if year - 1 in data['calendarYear'].values else None
-                
-                # Calculate change for the current caution year
-                if previous_year_value is not None:
-                    change = (caution_values[i] - previous_year_value) / previous_year_value * 100
-                    direction = "↓" if change < 0 else "↑"
-                    if change != 0:  # Skip 0% change
-                        caution_flags.append(f"     > FY {year}: Interest Coverage = {caution_values[i]:.2f} ({direction} {abs(change):.2f}%)")
-                    else:
-                        caution_flags.append(f"     > FY {year}: Interest Coverage = {caution_values[i]:.2f}")
-                else:
-                    caution_flags.append(f"     > FY {year}: Interest Coverage = {caution_values[i]:.2f}")
+                # Calculate percent change and direction from prior year
+                if i > 0:
+                    prev_coverage = data.iloc[i - 1]['Interest Coverage']
+                    if not pd.isnull(prev_coverage):
+                        change = (coverage - prev_coverage) / abs(prev_coverage) * 100
+                        direction = "↓" if change < 0 else "↑"
+                        flags.append(f"FY {year}: Interest Coverage = {coverage:.2f} ({direction} {self.format_percent(abs(change))}%)")
+                        continue
+
+                # For the first year or when no valid previous value exists
+                flags.append(f"FY {year}: Interest Coverage = {coverage:.2f}")
+
+            if flags:
+                range_text = f" {threshold_range}" if threshold_range else ""
+                output.append(f"\n\n{zone_name}{range_text}\n" + "\n".join(flags))
+
+        # Generate reports for each zone
+        generate_zone_report(
+            "Caution Zone:",
+            (data['Interest Coverage'] > red_flag_threshold) & (data['Interest Coverage'] <= caution_threshold),
+            f"Coverage between {red_flag_threshold} and {caution_threshold}",
+        )
+        generate_zone_report(
+            "Red Flag:",
+            (data['Interest Coverage'] > critical_threshold) & (data['Interest Coverage'] <= red_flag_threshold),
+            f"Coverage between {critical_threshold} and {red_flag_threshold}",
+        )
+        generate_zone_report(
+            "Critical Zone:",
+            (data['Interest Coverage'] > 0) & (data['Interest Coverage'] <= critical_threshold),
+            f"Coverage below {critical_threshold}",
+        )
+        generate_zone_report(
+            "Negative Interest Coverage:",
+            data['Interest Coverage'] < 0,
+            "Operating loss",
+        )
+
+        # If there are caution or red flags, add the warning text
+        if output:
+            warning_text = (
+                "!!! Declining Interest Coverage Ratio:\n\n"
+                "Indicates the company's ability to meet interest obligations from operating income.\n"
+                "Persistent issues may indicate financial distress and risk of default."
+            )
             
-            output.append(f"\n     Caution Zone: Interest Coverage between {red_flag_threshold}-{caution_threshold}\n{'\n'.join(caution_flags)}")
-
-        # Red flag zone output
-        if red_flag_years:
-            red_flags = []
-            for i, year in enumerate(red_flag_years):
-                previous_year_value = data.loc[data['calendarYear'] == year - 1, 'Interest Coverage'].values[0] if year - 1 in data['calendarYear'].values else None
-                
-                # Calculate change for the current red flag year
-                if previous_year_value is not None:
-                    change = (red_flag_values[i] - previous_year_value) / previous_year_value * 100
-                    direction = "↓" if change < 0 else "↑"
-                    if change != 0:  # Skip 0% change
-                        red_flags.append(f"     > FY {year}: Interest Coverage = {red_flag_values[i]:.2f} ({direction} {abs(change):.2f}%)")
-                    else:
-                        red_flags.append(f"     > FY {year}: Interest Coverage = {red_flag_values[i]:.2f}")
-                else:
-                    red_flags.append(f"     > FY {year}: Interest Coverage = {red_flag_values[i]:.2f}")
-            
-            output.append(f"\n     Red Flag: Interest Coverage between {critical_threshold}-{red_flag_threshold}\n{'\n'.join(red_flags)}")
-
-        # Critical zone output
-        if critical_years:
-            critical_flags = []
-            for i, year in enumerate(critical_years):
-                previous_year_value = data.loc[data['calendarYear'] == year - 1, 'Interest Coverage'].values[0] if year - 1 in data['calendarYear'].values else None
-                
-                # Calculate change for the current critical year
-                if previous_year_value is not None:
-                    change = (critical_values[i] - previous_year_value) / previous_year_value * 100
-                    direction = "↓" if change < 0 else "↑"
-                    if change != 0:  # Skip 0% change
-                        critical_flags.append(f"     > FY {year}: Interest Coverage = {critical_values[i]:.2f} ({direction} {abs(change):.2f}%)")
-                    else:
-                        critical_flags.append(f"     > FY {year}: Interest Coverage = {critical_values[i]:.2f}")
-                else:
-                    critical_flags.append(f"     > FY {year}: Interest Coverage = {critical_values[i]:.2f}")
-            
-            output.append(f"\n     Critical Zone: Interest Coverage below {critical_threshold}\n{'\n'.join(critical_flags)}")
-
-        # Join the output list into a single string
-        return '\n'.join(output) if output else None  # Return formatted output or None if no caution or red flags
+            return f"{warning_text}{''.join(output)}"
+        return None
 
     ############################ RF9 ############################
 
-    def analyze_increasing_dso(self, data, bad_dso_threshold=60):
+    def analyze_increasing_dso(self, data, bad_dso_threshold=45):
+        
+        # Ensure necessary columns are present
+        if 'netReceivables' not in data.columns or 'revenue' not in data.columns:
+            return "Net Receivables and Revenue analysis requires 'netReceivables' and 'revenue' columns."
+
         # Calculate DSO
-        data['DSO'] = (data['netReceivables'] / data['Revenue']) * 365
+        data['DSO'] = (data['netReceivables'] / data['revenue'].replace(0, np.nan)) * 365
 
         # Check if DSO is already bad
         bad_dso = data['DSO'] > bad_dso_threshold
 
         # Calculate year-over-year percentage change in DSO
-        dso_pct_change = data['DSO'].pct_change(fill_method=None).fillna(0) * 100
+        dso_pct_change = data['DSO'].pct_change() * 100
 
         # Filter for years where DSO is bad
         caution_zone = dso_pct_change[(dso_pct_change > 5) & (dso_pct_change <= 10) & bad_dso]
@@ -560,37 +599,41 @@ class RedFlagsService:
 
         # Caution Zone
         if not caution_zone.empty:
-            output.append("\n     Caution Zone: DSO increased between 5%-10%")
+            output.append("\nCaution Zone: DSO increased between 5%-10%")
             for idx in caution_zone.index:
                 year = data['calendarYear'].iloc[idx]
                 change = caution_zone[idx]
                 dso_value = data['DSO'].iloc[idx]
-                output.append(f"     > FY {year}: DSO = {dso_value:.2f} (↑ {change:.2f}%)")
+                output.append(f"FY {year}: DSO = {dso_value:.2f} (↑ {self.format_percent(change)}%)")
 
-        # \n     Red Flag Zone
+        # \n   Red Flag Zone
         if not red_flag_zone.empty:
-            output.append("\n     Red Flag: DSO increased above 10%")
+            output.append("\nRed Flag: DSO increased above 10%")
             for idx in red_flag_zone.index:
                 year = data['calendarYear'].iloc[idx]
                 change = red_flag_zone[idx]
                 dso_value = data['DSO'].iloc[idx]
-                output.append(f"     > FY {year}: DSO = {dso_value:.2f} (↑ {change:.2f}%)")
+                output.append(f"FY {year}: DSO = {dso_value:.2f} (↑ {self.format_percent(change)}%)")
 
         # Check for output presence
         if output:
             return (
-                " ! Increasing Days Sales Outstanding\n\n"
-                "   • Delayed cash inflows, affecting liquidity\n"
-                "   • An increasing DSO suggests the company is taking longer to collect payments, which may be due to customer financial strain\n" 
-                "     or ineffective collection processes, potentially leading to cash shortages\n\n" +
+                "!!! Increasing Days Sales Outstanding\n\n"
+                "Delayed cash inflows, affecting liquidity.\n"
+                "An increasing DSO suggests the company is taking longer to collect payments, which may be due to customer financial strain\n" 
+                "or ineffective collection processes, potentially leading to cash shortages.\n" +
                 "\n".join(output)
             )
         else:
-            return None  # Return None if no red flag
+            return None
 
     ############################ RF10 ############################
 
     def analyze_negative_free_cash_flow(self, data):
+        
+        # Ensure necessary columns are present
+        if 'freeCashFlow' not in data.columns:
+            return "Free Cash Flow analysis requires 'freeCashFlow' column."
 
         # Check for negative Free Cash Flow
         negative_fcf = data[data['freeCashFlow'] < 0]
@@ -600,91 +643,111 @@ class RedFlagsService:
 
         if not negative_fcf.empty:
             for year, fcf in zip(negative_fcf['calendarYear'], negative_fcf['freeCashFlow']):
-                output.append(f"     > FY {year}: Free Cash Flow = {fcf:.0f}")
+                output.append(f"FY {year}: Free Cash Flow = {self.format_number(fcf)}")
 
         # Check for output presence
         if output:
             return (
-                " ! Negative Free Cash Flow\n\n"
-                "   • Insufficient internal funds to support operations and growth, potentially requiring external financing\n"
-                "   • Persistent negative free cash flow can indicate unsustainable business models or overinvestment without adequate returns, increasing financial risk\n\n" +
-                "\n".join(output).replace('-', '-$')
-            )
-        else:
-            return None  # Return None if no red flag
-
-    ############################ RF11 ############################
-
-    def analyze_high_dividend_payout_poor_cash_flow(self, data):
-        output = []
-        
-        # Calculate Dividend Payout Ratio
-        data['payout_ratio'] = data['dividendsPaid'] / data['Net Income']
-
-        # Calculate the percentage change in payout ratio
-        payout_ratio_pct_change = data['payout_ratio'].pct_change(fill_method=None).fillna(0)
-
-        # Filter for companies with payout ratio > 50% and operating cash flow < dividends paid
-        high_payout_poor_cash_flow = data[
-            (data['payout_ratio'] > 0.5) & 
-            (data['operatingCashFlow'] < data['dividendsPaid'])
-        ]
-        
-        # Prepare output
-        if not high_payout_poor_cash_flow.empty:
-            for idx, row in high_payout_poor_cash_flow.iterrows():
-                pct_change = payout_ratio_pct_change[idx] * 100  # Convert to percentage
-                change_symbol = "↑" if pct_change > 0 else "↓"
-                output.append(
-                    f"     > FY {int(row['calendarYear'])}: Payout Ratio = {row['payout_ratio']:.2f} ({change_symbol} {abs(pct_change):.2f}%), "
-                    f"Operating Cash Flow = {int(row['operatingCashFlow'])}, Dividends Paid = {int(row['dividendsPaid'])}"
-                )
-
-        # Check for output presence
-        if output:
-            return (
-                " ! High Dividend Payout with Poor Cash Flow\n\n"
-                "   • Unsustainable dividend policy, possibly leading to increased debt or depletion of cash reserves.\n"
-                "   • This situation may indicate management's attempt to maintain investor confidence at the expense of long-term financial stability.\n\n" +
+                "!!! Negative Free Cash Flow\n\n"
+                "Insufficient internal funds to support operations and growth, potentially requiring external financing.\n"
+                "Persistent negative free cash flow can indicate unsustainable business models or overinvestment without adequate returns, increasing financial risk.\n\n" +
                 "\n".join(output)
             )
         else:
-            return None  # Return None if no red flag
+            return None
+
+    ############################ RF11 ############################
+
+    def analyze_high_dividend_payout_poor_cash_flow(self, data, payout_threshold=0.75):
+
+        # Ensure necessary columns are present
+        if not all(col in data.columns for col in ['calendarYear', 'dividendsPaid', 'netIncome', 'freeCashFlow']):
+            return "Dividend Payout and Free Cash Flow analysis requires 'dividendsPaid', 'netIncome', 'freeCashFlow' columns."
+
+        # Calculate Dividend Payout Ratio
+        data['payout_ratio'] = data['dividendsPaid'].abs() / data['netIncome'].replace(0, np.nan).abs()
+
+        # Calculate the percentage change in payout ratio
+        data['payout_ratio_pct_change'] = data['payout_ratio'].pct_change() * 100
+
+        # Filter for companies with payout ratio > 75% and free cash flow < absolute dividends paid
+        high_payout_poor_cash_flow = data[
+            (data['payout_ratio'] > payout_threshold) &
+            (data['freeCashFlow'] < data['dividendsPaid'].abs())
+        ]
+
+        # Prepare output
+        if not high_payout_poor_cash_flow.empty:
+            output = [
+                "!!! High Dividend Payout with Poor Free Cash Flow\n",
+                "Unsustainable dividend policy, possibly leading to increased debt or depletion of cash reserves.",
+                "This situation may indicate management's attempt to maintain investor confidence at the expense of long-term financial stability.\n"
+            ]
+            for idx, row in high_payout_poor_cash_flow.iterrows():
+                if idx == 0:  # Skip percentage change for the first row
+                    output.append(
+                        f"FY {int(row['calendarYear'])}: "
+                        f"Payout Ratio = {row['payout_ratio']:.2f}, "
+                        f"Free Cash Flow = {self.format_number(row['freeCashFlow'])}, "
+                        f"Dividends Paid = {self.format_number(abs(row['dividendsPaid']))}"
+                    )
+                else:  # Include percentage change for subsequent rows
+                    pct_change = row['payout_ratio_pct_change']
+                    change_symbol = "↑" if pct_change > 0 else "↓"
+                    pct_change_str = f"({change_symbol} {self.format_percent(abs(pct_change))}%)"
+                    output.append(
+                        f"FY {int(row['calendarYear'])}: "
+                        f"Payout Ratio = {row['payout_ratio']:.2f} {pct_change_str}, "
+                        f"Free Cash Flow = {self.format_number(row['freeCashFlow'])}, "
+                        f"Dividends Paid = {self.format_number(abs(row['dividendsPaid']))}"
+                    )
+            return "\n".join(output)
+        else:
+            return None
 
     ############################ RF12 ############################
 
-    def analyze_frequent_equity_issuances(self, data):
+    def analyze_large_equity_issuances(self, data, issuance_threshold = 0.1):
+        
+        # Ensure necessary columns are present
+        if 'weightedAverageShsOut' not in data.columns:
+            return "Equity Issuances analysis requires 'weightedAverageShsOut' column."
 
         # Calculate year-over-year change in shares outstanding
-        data['shares_change'] = data['weightedAverageShsOut'].pct_change(fill_method=None)
+        data['shares_change'] = data['weightedAverageShsOut'].replace(0, np.nan).pct_change()
 
-        # Filter for significant increases in shares outstanding (e.g., more than 5% increase)
-        equity_issuances = data[data['shares_change'] > 0.05]
+        # Filter for significant increases in shares outstanding (e.g., more than 10% increase)
+        equity_issuances = data[data['shares_change'] > issuance_threshold]
 
         # Prepare output
         output = []
         
         if not equity_issuances.empty:
             for year, change, shares in zip(equity_issuances['calendarYear'], equity_issuances['shares_change'], equity_issuances['weightedAverageShsOut']):
-                output.append(f"     > FY {year}: Shares Outstanding ↑ {change:.2%}")
+                output.append(f"FY {year}: Shares Outstanding = {self.format_number(shares)} (↑ {self.format_percent(change * 100)}%)")
 
         # Check if any red flags are found
         if output:
             return (
-                " ! Frequent Equity Issuances\n\n"
-                "   • Dilution of existing shareholders' equity and potential signal of cash flow problems.\n"
-                "   • Reliance on issuing new shares may indicate that the company cannot generate sufficient internal funds.\n"
-                "   • This may undermine investor confidence and negatively affect earnings per share (EPS).\n\n" +
+                "!!! Large Equity Issuances\n\n"
+                "Dilution of existing shareholders' equity and potential signal of cash flow problems.\n"
+                "Reliance on issuing new shares may indicate that the company cannot generate sufficient internal funds.\n"
+                "This may undermine investor confidence and negatively affect earnings per share (EPS).\n\n" +
                 "\n".join(output)
             )
         else:
-            return None  # Return None if no red flags are found
+            return None
         
     ############################ RF13 ############################
 
-    def analyze_short_term_debt(self, data, caution_threshold=0.10, red_flag_threshold=0.15):
+    def analyze_short_term_debt(self, data, caution_threshold=0.15, red_flag_threshold=0.30):
+        
+        # Ensure necessary columns are present
+        if 'shortTermDebt' not in data.columns:
+            return "Short-Term Debt analysis requires 'shortTermDebt' column."
+
         # Calculate year-over-year percentage change in short-term debt
-        short_term_debt_pct_change = data['shortTermDebt'].pct_change(fill_method=None).fillna(0)
+        short_term_debt_pct_change = data['shortTermDebt'].replace(0, np.nan).pct_change()
 
         # Identify years where the YoY increase falls within the caution or red flag thresholds
         caution_years = data.loc[(short_term_debt_pct_change > caution_threshold) & 
@@ -699,27 +762,29 @@ class RedFlagsService:
 
         # Add warning text
         warning_text = (
-            " ! Unusual Increase in Short-Term Debt\n\n"
-            "   • Potential liquidity crunch, as reliance on short-term financing may indicate cash flow issues.\n"
-            "   • Short-term debt often carries higher rollover risk and may reflect difficulties in securing long-term financing, raising concerns about financial stability.\n\n"
+            "!!! Unusual Increase in Short-Term Debt\n\n"
+            "Potential liquidity crunch, as reliance on short-term financing may indicate cash flow issues.\n"
+            "Short-term debt often carries higher rollover risk and may reflect difficulties in securing long-term financing, raising concerns about financial stability.\n"
         )
         
         # Caution zone output
         if caution_years:
             caution_flags = []
             for year, change in zip(caution_years, caution_changes):
-                caution_flags.append(f"     > FY {year}: Short-Term Debt ↑ {change * 100:.2f}%")
-            output.append(f"\n     Caution Zone: Short-Term Debt increased between 10%-15%\n{'\n'.join(caution_flags)}")
+                shortTermDebt = data.loc[data['calendarYear'] == year, 'shortTermDebt'].values[0]
+                caution_flags.append(f"FY {year}: Short-Term Debt = {self.format_number(shortTermDebt)} (↑ {self.format_percent(change * 100)}%)")
+            output.append(f"\nCaution Zone: Short-Term Debt increased between 15%-30%\n{'\n'.join(caution_flags)}")
 
         # Red flag zone output
         if red_flag_years:
             red_flags = []
             for year, change in zip(red_flag_years, red_flag_changes):
-                red_flags.append(f"     > FY {year}: Short-Term Debt ↑ {change * 100:.2f}%")
-            output.append(f"\n     Red Flag: Short-Term Debt increased above 15%\n{'\n'.join(red_flags)}")
+                shortTermDebt = data.loc[data['calendarYear'] == year, 'shortTermDebt'].values[0]
+                red_flags.append(f"FY {year}: Short-Term Debt = {self.format_number(shortTermDebt)} (↑ {self.format_percent(change * 100)}%)")
+            output.append(f"\nRed Flag: Short-Term Debt increased above 30%\n{'\n'.join(red_flags)}")
 
         # Combine warning text with output
         if output:
             return f"{warning_text}{'\n'.join(output)}"
         
-        return None  # Return None if no red flag is found
+        return None
