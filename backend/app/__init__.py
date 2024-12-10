@@ -4,9 +4,12 @@ from flask import Flask
 from .financial_controller import financial_bp
 from .db import db
 from flask_cors import CORS
+import sys
 
 def create_app():
     app = Flask(__name__)
+    
+    print(f"Python version: {sys.version}")
 
     # Enable CORS for all routes and origins
      
