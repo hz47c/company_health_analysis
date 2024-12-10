@@ -18,6 +18,8 @@ class PositiveIndicatorsService:
             # Balance Sheet
 
             # Balance Sheet
+
+            # Balance Sheet
             'totalCurrentAssets': [],
             'cashAndCashEquivalents': [],
             'netReceivables': [],
