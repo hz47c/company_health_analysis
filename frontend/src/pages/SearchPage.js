@@ -60,8 +60,8 @@ function SearchPage() {
             {isPopupOpen && (
                 <div style={styles.popupOverlay} onClick={togglePopup}>
                     <div style={styles.popupContent} onClick={(e) => e.stopPropagation()}>
-                        <h2>Stock Information Source</h2>
-                        <p>All information is obtained from SEC website and Finanical prep website</p>
+                        <h2>Company Financials Source</h2>
+                        <p>All information is obtained from SEC website and Finanical Model prep website</p>
                         <button onClick={togglePopup} style={styles.closeButton}>Close</button>
                     </div>
                 </div>

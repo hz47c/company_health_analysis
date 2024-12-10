@@ -67,7 +67,22 @@ const FilterComponent = ({ data, groups }) => {
     const currentMetrics = groups.find(group => group.group === selectedGroup)?.metrics || [];
 
     return (
-        <Box sx={{ p: 4, maxWidth: '900px', margin: '0 auto', backgroundColor: '#1c1c1c', borderRadius: '8px' }}>
+        <Box
+            sx={{
+                p: 4,
+                maxWidth: '900px',
+                width: '100%',
+                margin: '0 auto',
+                backgroundColor: '#1c1c1c',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+                '@media (max-width: 600px)': {
+                    maxWidth: '100%',
+                    padding: '16px',
+                },
+            }}
+        >
             {/* Title */}
             <Typography variant="h5" align="center" gutterBottom sx={{ color: '#f0f0f0' }}>
                 Select Financial Data
@@ -84,8 +99,8 @@ const FilterComponent = ({ data, groups }) => {
                     onChange={handleGroupChange}
                     sx={{
                         backgroundColor: '#333',
-                        color: '#f0f0f0', // Color for selected item when dropdown is closed
-                        '& .MuiSvgIcon-root': { color: '#f0f0f0' } // Color for dropdown arrow
+                        color: '#f0f0f0',
+                        '& .MuiSvgIcon-root': { color: '#f0f0f0' }
                     }}
                 >
                     {groups.map(group => (
@@ -94,16 +109,16 @@ const FilterComponent = ({ data, groups }) => {
                             value={group.group}
                             sx={{
                                 color: '#f0f0f0',
-                                backgroundColor: selectedGroup === group.group ? '#555' : '#333', // Darker bg for selected item
+                                backgroundColor: selectedGroup === group.group ? '#555' : '#333',
                                 '&.Mui-selected': {
-                                    backgroundColor: '#444', // Set background color for selected item
-                                    color: '#fff' // Set text color for selected item
+                                    backgroundColor: '#444',
+                                    color: '#fff'
                                 },
                                 '&.Mui-selected:hover': {
-                                    backgroundColor: '#666' // Different hover color when selected
+                                    backgroundColor: '#666'
                                 },
                                 '&:hover': {
-                                    backgroundColor: '#555' // Hover color for non-selected items
+                                    backgroundColor: '#555'
                                 }
                             }}
                         >
@@ -124,8 +139,8 @@ const FilterComponent = ({ data, groups }) => {
                     onChange={handleMetricChange}
                     sx={{
                         backgroundColor: '#333',
-                        color: '#f0f0f0', // Color for selected item when dropdown is closed
-                        '& .MuiSvgIcon-root': { color: '#f0f0f0' } // Color for dropdown arrow
+                        color: '#f0f0f0',
+                        '& .MuiSvgIcon-root': { color: '#f0f0f0' }
                     }}
                 >
                     {currentMetrics.map(metric => (
@@ -134,16 +149,16 @@ const FilterComponent = ({ data, groups }) => {
                             value={metric.value}
                             sx={{
                                 color: '#f0f0f0',
-                                backgroundColor: selectedMetric === metric.value ? '#555' : '#333', // Darker bg for selected item
+                                backgroundColor: selectedMetric === metric.value ? '#555' : '#333',
                                 '&.Mui-selected': {
-                                    backgroundColor: '#444', // Set background color for selected item
-                                    color: '#fff' // Set text color for selected item
+                                    backgroundColor: '#444',
+                                    color: '#fff'
                                 },
                                 '&.Mui-selected:hover': {
-                                    backgroundColor: '#666' // Different hover color when selected
+                                    backgroundColor: '#666'
                                 },
                                 '&:hover': {
-                                    backgroundColor: '#555' // Hover color for non-selected items
+                                    backgroundColor: '#555'
                                 }
                             }}
                         >
@@ -155,10 +170,28 @@ const FilterComponent = ({ data, groups }) => {
 
             {/* Render Chart */}
             {chartData && (
-                <Box sx={{ boxShadow: 3, p: 3, backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
+                <Box
+                    sx={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        height: '400px',
+                        boxShadow: 3,
+                        p: 3,
+                        backgroundColor: '#2a2a2a',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                        '@media (max-width: 600px)': {
+                            height: '300px',
+                            padding: '16px',
+                        },
+                    }}
+                >
                     <Line
                         data={chartData}
                         options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
                             scales: {
                                 y: {
                                     beginAtZero: true,
@@ -178,7 +211,6 @@ const FilterComponent = ({ data, groups }) => {
                                     }
                                 }
                             },
-                            responsive: true,
                             plugins: {
                                 legend: {
                                     display: true,
