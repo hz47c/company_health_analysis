@@ -114,7 +114,7 @@ class RedFlagsService:
             result = function(data)
             if result:
                 results.append(result)
-                results.append("_____________________________________")
+                results.append("_____________________________________________________________________________________________")
 
         return "\n\n".join(results) if results else "No red flags identified."
 
@@ -170,8 +170,7 @@ class RedFlagsService:
             details = "\n".join(red_flags)
             return (
                 "!!! Declining Revenue with Increasing Net Income\n\n"
-                "Possible reliance on non-operational income (e.g., asset sales) or aggressive cost-cutting measures that may not be sustainable.\n"
-                "It may mask underlying issues in the core business operations, indicating potential future declines in profitability once temporary measures fade.\n\n"
+                "Possible reliance on non-operational income (e.g., asset sales) or aggressive cost-cutting measures that may not be sustainable. It may mask underlying issues in the core business operations, indicating potential future declines in profitability once temporary measures fade.\n\n"
                 f"{details}"
             )
         return None
@@ -218,9 +217,7 @@ class RedFlagsService:
             details = "\n".join(red_flags)
             return (
                 "!!! High or Increasing Debt Levels Relative to Equity\n\n"
-                "Heightened financial risk due to increased leverage.\n"
-                "The company may be over-reliant on debt financing, making it vulnerable to interest rate hikes and economic downturns.\n"
-                "This can limit future borrowing capacity and increase default risk.\n\n"
+                "Heightened financial risk due to increased leverage. The company may be over-reliant on debt financing, making it vulnerable to interest rate hikes and economic downturns. This can limit future borrowing capacity and increase default risk.\n\n"
                 f"{details}"
             )
         return None
@@ -254,14 +251,13 @@ class RedFlagsService:
             for year, rev_change, inc_change in zip(red_flag_years, operating_cash_flow_changes, income_changes):
                 operatingCashFlow = data.loc[data['calendarYear'] == year, 'operatingCashFlow'].values[0]
                 netIncome = data.loc[data['calendarYear'] == year, 'netIncome'].values[0]
-                red_flags.append(f"FY {year}: Net Income = {self.format_number(netIncome)} (↑ {self.format_percent(inc_change * 100)}%), Operating Cash Flow = {self.format_number(operatingCashFlow)} (↓ {self.format_percent(abs(rev_change) * 100)}%)")
+                red_flags.append(f"\nFY {year}: Net Income = {self.format_number(netIncome)} (↑ {self.format_percent(inc_change * 100)}%),\n         Operating Cash Flow = {self.format_number(operatingCashFlow)} (↓ {self.format_percent(abs(rev_change) * 100)}%)")
 
             # Format the output
             details = "\n".join(red_flags)
             return (
                 "!!! Rising Net Income with Decreasing Cash Flow from Operations\n\n"
-                "Potential earnings quality issues, suggesting that reported net income isn't translating into actual cash.\n"
-                "This discrepancy could be due to non-cash revenue recognition or changes in working capital, raising concerns about the sustainability of earnings.\n\n"
+                "Potential earnings quality issues, suggesting that reported net income isn't translating into actual cash. This discrepancy could be due to non-cash revenue recognition or changes in working capital, raising concerns about the sustainability of earnings.\n"
                 f"{details}"
             )
         return None
@@ -301,8 +297,7 @@ class RedFlagsService:
         # Prepare output for all zones only if bad ratio is met
         if caution_years or red_flag_years or critical_years:
             output.append("!!! Growing Accounts Receivable as a Percentage of Sales\n")
-            output.append("Indicates worsening collection issues or overly loose credit terms, potentially leading to cash flow problems.")
-            output.append("Suggests rising bad debt expenses and declining credit quality of customers.")
+            output.append("Indicates worsening collection issues or overly loose credit terms, potentially leading to cash flow problems. Suggests rising bad debt expenses and declining credit quality of customers.")
 
         # Caution zone output
         if caution_years:
@@ -362,8 +357,7 @@ class RedFlagsService:
         # Prepare output for all zones
         if caution_years or red_flag_years or critical_years:
             output.append("!!! Decreasing Gross Profit Margins\n")
-            output.append("Suggests worsening efficiency or rising costs of goods sold, which can erode profitability.")
-            output.append("It may indicate market pressures or competitive challenges affecting pricing power, requiring a strategic review to address cost management.")
+            output.append("Suggests worsening efficiency or rising costs of goods sold, which can erode profitability. It may indicate market pressures or competitive challenges affecting pricing power, requiring a strategic review to address cost management.")
 
         # Caution zone output
         if caution_years:
@@ -427,8 +421,7 @@ class RedFlagsService:
         # Prepare output for decreasing turnover ratios
         if caution_years or red_flag_years or critical_years:
             output.append("!!! Increasing Inventory Levels Relative to Sales\n")
-            output.append("Indicates potential overstocking or declining demand for products, which can lead to obsolescence.")
-            output.append("It can tie up capital that could be used for growth or other investments, posing risks to cash flow and profitability.")
+            output.append("Indicates potential overstocking or declining demand for products, which can lead to obsolescence. It can tie up capital that could be used for growth or other investments, posing risks to cash flow and profitability.")
 
         # Caution zone output
         if caution_years:
@@ -496,8 +489,7 @@ class RedFlagsService:
         if output:
             warning_text = (
                 "!!! Large Increases in Goodwill or Intangible Assets\n\n"
-                "Risk of overpaying for acquisitions, leading to future impairment charges if expected synergies or performance do not materialize.\n"
-                "This can negatively impact future earnings and may suggest aggressive growth strategies without adequate due diligence."
+                "Risk of overpaying for acquisitions, leading to future impairment charges if expected synergies or performance do not materialize. This can negatively impact future earnings and may suggest aggressive growth strategies without adequate due diligence."
             )
             
             return f"{warning_text}{''.join(output)}"
@@ -566,8 +558,7 @@ class RedFlagsService:
         if output:
             warning_text = (
                 "!!! Declining Interest Coverage Ratio:\n\n"
-                "Indicates the company's ability to meet interest obligations from operating income.\n"
-                "Persistent issues may indicate financial distress and risk of default."
+                "Indicates the company's ability to meet interest obligations from operating income. Persistent issues may indicate financial distress and risk of default."
             )
             
             return f"{warning_text}{''.join(output)}"
@@ -619,9 +610,7 @@ class RedFlagsService:
         if output:
             return (
                 "!!! Increasing Days Sales Outstanding\n\n"
-                "Delayed cash inflows, affecting liquidity.\n"
-                "An increasing DSO suggests the company is taking longer to collect payments, which may be due to customer financial strain\n" 
-                "or ineffective collection processes, potentially leading to cash shortages.\n" +
+                "Delayed cash inflows, affecting liquidity. An increasing DSO suggests the company is taking longer to collect payments, which may be due to customer financial strain or ineffective collection processes, potentially leading to cash shortages.\n" +
                 "\n".join(output)
             )
         else:
@@ -649,8 +638,7 @@ class RedFlagsService:
         if output:
             return (
                 "!!! Negative Free Cash Flow\n\n"
-                "Insufficient internal funds to support operations and growth, potentially requiring external financing.\n"
-                "Persistent negative free cash flow can indicate unsustainable business models or overinvestment without adequate returns, increasing financial risk.\n\n" +
+                "Insufficient internal funds to support operations and growth, potentially requiring external financing. Persistent negative free cash flow can indicate unsustainable business models or overinvestment without adequate returns, increasing financial risk.\n\n" +
                 "\n".join(output)
             )
         else:
@@ -680,8 +668,7 @@ class RedFlagsService:
         if not high_payout_poor_cash_flow.empty:
             output = [
                 "!!! High Dividend Payout with Poor Free Cash Flow\n",
-                "Unsustainable dividend policy, possibly leading to increased debt or depletion of cash reserves.",
-                "This situation may indicate management's attempt to maintain investor confidence at the expense of long-term financial stability.\n"
+                "Unsustainable dividend policy, possibly leading to increased debt or depletion of cash reserves. This situation may indicate management's attempt to maintain investor confidence at the expense of long-term financial stability."
             ]
             for idx, row in high_payout_poor_cash_flow.iterrows():
                 if idx == 0:  # Skip percentage change for the first row
@@ -696,8 +683,8 @@ class RedFlagsService:
                     change_symbol = "↑" if pct_change > 0 else "↓"
                     pct_change_str = f"({change_symbol} {self.format_percent(abs(pct_change))}%)"
                     output.append(
-                        f"FY {int(row['calendarYear'])}: "
-                        f"Payout Ratio = {row['payout_ratio']:.2f} {pct_change_str}, "
+                        f"\nFY {int(row['calendarYear'])}: "
+                        f"Payout Ratio = {row['payout_ratio']:.2f} {pct_change_str}, \n         "
                         f"Free Cash Flow = {self.format_number(row['freeCashFlow'])}, "
                         f"Dividends Paid = {self.format_number(abs(row['dividendsPaid']))}"
                     )
@@ -730,9 +717,7 @@ class RedFlagsService:
         if output:
             return (
                 "!!! Large Equity Issuances\n\n"
-                "Dilution of existing shareholders' equity and potential signal of cash flow problems.\n"
-                "Reliance on issuing new shares may indicate that the company cannot generate sufficient internal funds.\n"
-                "This may undermine investor confidence and negatively affect earnings per share (EPS).\n\n" +
+                "Dilution of existing shareholders' equity and potential signal of cash flow problems. Reliance on issuing new shares may indicate that the company cannot generate sufficient internal funds. This may undermine investor confidence and negatively affect earnings per share (EPS).\n\n" +
                 "\n".join(output)
             )
         else:
@@ -763,8 +748,7 @@ class RedFlagsService:
         # Add warning text
         warning_text = (
             "!!! Unusual Increase in Short-Term Debt\n\n"
-            "Potential liquidity crunch, as reliance on short-term financing may indicate cash flow issues.\n"
-            "Short-term debt often carries higher rollover risk and may reflect difficulties in securing long-term financing, raising concerns about financial stability.\n"
+            "Potential liquidity crunch, as reliance on short-term financing may indicate cash flow issues. Short-term debt often carries higher rollover risk and may reflect difficulties in securing long-term financing, raising concerns about financial stability.\n"
         )
         
         # Caution zone output
