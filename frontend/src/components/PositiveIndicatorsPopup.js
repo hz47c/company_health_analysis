@@ -54,7 +54,7 @@ const styles = {
     },
     popup: {
         width: '50%',
-        maxWidth: '600px',
+        maxWidth: '50%',
         height: '100%',
         backgroundColor: '#1e1e1e',  // Dark background
         color: '#f5f5f5',             // Light text color
