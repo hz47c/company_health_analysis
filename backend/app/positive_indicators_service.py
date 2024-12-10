@@ -16,6 +16,8 @@ class PositiveIndicatorsService:
             'calendarYear': [],
 
             # Balance Sheet
+
+            # Balance Sheet
             'totalCurrentAssets': [],
             'cashAndCashEquivalents': [],
             'netReceivables': [],
@@ -27,6 +29,17 @@ class PositiveIndicatorsService:
             'deferredRevenue': [],
             'totalStockholdersEquity': [],
             
+            # Income Statement
+            'revenue': [],
+            'costOfRevenue': [],
+            'grossProfit': [],
+            'researchAndDevelopmentExpenses': [],
+            'operatingExpenses': [],
+            'operatingIncome': [],
+            'interestExpense': [],
+            'netIncome': [],
+            
+            # Cash Flow Statement
             # Income Statement
             'revenue': [],
             'costOfRevenue': [],
