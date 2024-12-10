@@ -53,8 +53,8 @@ const styles = {
         zIndex: 1000,
     },
     popup: {
-        width: '30%',
-        maxWidth: '400px',
+        width: '50%',
+        maxWidth: '600px',
         height: '100%',
         backgroundColor: '#1e1e1e',  // Dark background
         color: '#f5f5f5',             // Light text color

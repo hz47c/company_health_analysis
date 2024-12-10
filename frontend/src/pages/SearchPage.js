@@ -1,10 +1,10 @@
-// src/pages/SearchPage.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 function SearchPage() {
     const [ticker, setTicker] = useState('');
+    const [isPopupOpen, setIsPopupOpen] = useState(false); // State for popup visibility
     const navigate = useNavigate();
 
     const handleSearch = async (event) => {
@@ -13,28 +13,31 @@ function SearchPage() {
             try {
                 // Fetch data from the financialData API
                 const response = await axios.get(`http://127.0.0.1:5000/financialData/${ticker}`);
-                console.log('API Response:', response.data); // Debugging: check API response
+                console.log('API Response:', response.data);
 
-                // Check if essential data is missing or empty
                 const { balanceSheet, cashFlow, companyName, incomeStatement } = response.data;
                 const isDataMissing = 
-                    !balanceSheet.length ||  // Check if balanceSheet is empty
-                    !cashFlow.length ||      // Check if cashFlow is empty
-                    !companyName?.companyName ||  // Check if companyName is null or missing
-                    !incomeStatement.length; // Check if incomeStatement is empty
+                    !balanceSheet.length || 
+                    !cashFlow.length || 
+                    !companyName?.companyName || 
+                    !incomeStatement.length;
 
                 if (isDataMissing) {
                     console.log("Incomplete data found. Redirecting to error page");
-                    navigate('/error'); // Redirect to error page if data is incomplete
+                    navigate('/error');
                 } else {
                     console.log("Data found. Navigating to company dashboard");
-                    navigate(`/company/${ticker}`); // Redirect to dashboard if data is valid
+                    navigate(`/company/${ticker}`);
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
-                navigate('/error'); // Redirect to error page on API error
+                navigate('/error');
             }
         }
+    };
+
+    const togglePopup = () => {
+        setIsPopupOpen(!isPopupOpen); // Toggle popup visibility
     };
 
     return (
@@ -51,6 +54,18 @@ function SearchPage() {
                 />
                 <button type="submit" style={styles.button}>Search</button>
             </form>
+
+            <button onClick={togglePopup} style={styles.stockInfoButton}>Information Source</button>
+
+            {isPopupOpen && (
+                <div style={styles.popupOverlay} onClick={togglePopup}>
+                    <div style={styles.popupContent} onClick={(e) => e.stopPropagation()}>
+                        <h2>Stock Information Source</h2>
+                        <p>All information is obtained from SEC website and Finanical prep website</p>
+                        <button onClick={togglePopup} style={styles.closeButton}>Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -95,6 +110,47 @@ const styles = {
     },
     button: {
         padding: '12px 20px',
+        border: 'none',
+        borderRadius: '6px',
+        backgroundColor: '#ff6b6b',
+        color: '#fff',
+        cursor: 'pointer',
+        fontSize: '1rem',
+    },
+    stockInfoButton: {
+        position: 'absolute', // Position the button absolutely within the container
+        bottom: '20px', // 20px from the bottom of the container
+        right: '20px', // 20px from the right of the container
+        padding: '12px 20px',
+        border: 'none',
+        borderRadius: '6px',
+        backgroundColor: '#4caf50',
+        color: '#fff',
+        cursor: 'pointer',
+        fontSize: '1rem',
+    },
+    popupOverlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    popupContent: {
+        backgroundColor: '#222',
+        color: '#fff',
+        padding: '20px',
+        borderRadius: '10px',
+        width: '400px',
+        textAlign: 'center',
+    },
+    closeButton: {
+        marginTop: '20px',
+        padding: '10px 15px',
         border: 'none',
         borderRadius: '6px',
         backgroundColor: '#ff6b6b',
