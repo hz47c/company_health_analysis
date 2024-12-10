@@ -58,7 +58,7 @@ function BalanceSheet({ ticker }) {
     useEffect(() => {
         const fetchBalanceSheet = async () => {
             try {
-                const response = await axios.get(`http://127.0.0.1:5000/balanceSheetDB/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/balanceSheetDB/${ticker}`);
                 setBalanceSheetData(response.data.balanceSheet);
             } catch (error) {
                 console.error('Error fetching balance sheet:', error);

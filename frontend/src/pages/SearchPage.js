@@ -12,7 +12,7 @@ function SearchPage() {
         if (ticker.trim()) {
             try {
                 // Fetch data from the financialData API
-                const response = await axios.get(`http://127.0.0.1:5000/financialData/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/financialData/${ticker}`);
                 console.log('API Response:', response.data);
 
                 const { balanceSheet, cashFlow, companyName, incomeStatement } = response.data;

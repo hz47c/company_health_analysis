@@ -20,7 +20,7 @@ function CompanyDashboard() {
     useEffect(() => {
         const fetchCompanyData = async () => {
             try {
-                const response = await axios.get(`http://127.0.0.1:5000/companyDB/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/companyDB/${ticker}`);
                 setCompanyData(response.data.company);
                 setLoading(false);
             } catch (error) {

@@ -62,7 +62,7 @@ function IncomeStatement({ ticker }) {
     useEffect(() => {
         const fetchIncomeStatement = async () => {
             try {
-                const response = await axios.get(`http://127.0.0.1:5000/incomeStatementDB/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/incomeStatementDB/${ticker}`);
                 setIncomeStatementData(response.data.incomeStatement);
             } catch (error) {
                 console.error('Error fetching income statement:', error);

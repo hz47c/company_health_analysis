@@ -11,7 +11,7 @@ function RedFlagsPopup({ isOpen, onClose }) {
         if (isOpen) {
             const fetchRedFlags = async () => {
                 try {
-                    const response = await axios.get(`http://127.0.0.1:5000/redflags/${ticker}`);
+                    const response = await axios.get(`https://company-health-analysis-backend.onrender.com/redflags/${ticker}`);
                     setRedFlags(response.data.redflags);
                     setLoading(false);
                 } catch (error) {

@@ -11,7 +11,7 @@ function PositiveIndicatorsPopup({ isOpen, onClose }) {
         if (isOpen) {
             const fetchPositiveIndicators = async () => {
                 try {
-                    const response = await axios.get(`http://127.0.0.1:5000/positiveindicators/${ticker}`);
+                    const response = await axios.get(`https://company-health-analysis-backend.onrender.com/positiveindicators/${ticker}`);
                     setPositiveIndicators(response.data.positive_indicators);
                     setLoading(false);
                 } catch (error) {

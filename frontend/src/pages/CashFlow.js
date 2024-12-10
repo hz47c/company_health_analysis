@@ -57,7 +57,7 @@ function CashFlow({ ticker }) {
     useEffect(() => {
         const fetchCashFlow = async () => {
             try {
-                const response = await axios.get(`http://127.0.0.1:5000/cashFlowDB/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/cashFlowDB/${ticker}`);
                 setCashFlowData(response.data.cashFlow);
             } catch (error) {
                 console.error('Error fetching cash flow statement:', error);

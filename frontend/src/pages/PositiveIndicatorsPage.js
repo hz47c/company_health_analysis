@@ -12,7 +12,7 @@ function PositiveIndicatorsPage() {
     useEffect(() => {
         const fetchPositives = async () => {
             try {
-                const response = await axios.get(`http://127.0.0.1:5000/positiveindicators/${ticker}`);
+                const response = await axios.get(`https://company-health-analysis-backend.onrender.com/positiveindicators/${ticker}`);
                 
                 setPositiveIndicators(response.data.positive_indicators);
   
