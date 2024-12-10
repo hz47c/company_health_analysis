@@ -16,10 +16,6 @@ class PositiveIndicatorsService:
             'calendarYear': [],
 
             # Balance Sheet
-
-            # Balance Sheet
-
-            # Balance Sheet
             'totalCurrentAssets': [],
             'cashAndCashEquivalents': [],
             'netReceivables': [],
@@ -31,17 +27,6 @@ class PositiveIndicatorsService:
             'deferredRevenue': [],
             'totalStockholdersEquity': [],
             
-            # Income Statement
-            'revenue': [],
-            'costOfRevenue': [],
-            'grossProfit': [],
-            'researchAndDevelopmentExpenses': [],
-            'operatingExpenses': [],
-            'operatingIncome': [],
-            'interestExpense': [],
-            'netIncome': [],
-            
-            # Cash Flow Statement
             # Income Statement
             'revenue': [],
             'costOfRevenue': [],
@@ -122,7 +107,7 @@ class PositiveIndicatorsService:
             result = function(data)
             if result:
                 results.append(result)
-                results.append("_____________________________________")
+                results.append("_____________________________________________________________________________________________")
 
         return "\n\n".join(results) if results else "No positive indicators identified."
 
@@ -171,9 +156,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Increasing Free Cash Flow Despite Stable Net Income\n",
-            "Improved cash efficiency, indicating that the company is generating more cash from operations.",
-            "Suggests strong cash management, potential for reinvestment or debt reduction.",
-            "Net Income change is minimal (±10%)\n"
+            "Improved cash efficiency, indicating that the company is generating more cash from operations. Net Income change is minimal (±10%)\n"
         ]
 
         for i in range(1, len(data)):
@@ -216,8 +199,7 @@ class PositiveIndicatorsService:
         # Prepare report header
         report = [
             "✓✓✓ Reducing Debt Levels\n",
-            "Deleveraging strategy, enhancing financial stability and reducing interest expenses.",
-            "This strengthens the balance sheet, lowers financial risk, and increases the company's flexibility to invest in growth opportunities.\n"
+            "Deleveraging strategy, enhancing financial stability and reducing interest expenses. This strengthens the balance sheet, lowers financial risk, and increases the company's flexibility to invest in growth opportunities.\n"
         ]
         initial_report_lines = len(report)
 
@@ -256,8 +238,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Improving Efficiency Ratios\n",
-            "Enhanced operational performance, suggesting better management of assets.",
-            "Improved efficiency ratios indicate the company is effectively utilizing its resources to generate sales.\n"
+            "Enhanced operational performance, suggesting better management of assets. Improved efficiency ratios indicate the company is effectively utilizing its resources to generate sales.\n"
         ]
 
         # Track if any year meets the criteria
@@ -303,8 +284,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Expanding Gross Profit Margins\n",
-            "Increased pricing power or cost control, leading to higher profitability.",
-            "This may result from innovation, brand strength, or economies of scale, indicating a strong competitive position and effective management strategies.\n"
+            "Increased pricing power or cost control, leading to higher profitability. This may result from innovation, brand strength, or economies of scale, indicating a strong competitive position and effective management strategies.\n"
         ]
 
         # Track if any year meets the criteria
@@ -344,8 +324,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Consistent Revenue Growth\n",
-            "Strong market demand and successful business strategies, demonstrating the company's ability to grow its customer base and market share.",
-            "Consistent growth can lead to economies of scale and attract investment.\n"
+            "Strong market demand and successful business strategies, demonstrating the company's ability to grow its customer base and market share. Consistent growth can lead to economies of scale and attract investment.\n"
         ]
         
         if consistent_growth:
@@ -378,8 +357,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Increasing Return on Equity and Assets\n",
-            "Efficient use of capital and assets, indicating management is generating higher returns from available resources.",
-            "This suggests profitability and effectiveness in deploying capital, enhancing shareholder value.\n"
+            "Efficient use of capital and assets, indicating management is generating higher returns from available resources. This suggests profitability and effectiveness in deploying capital, enhancing shareholder value.\n"
         ]
         
         # Check only positive ROE and ROA improvements
@@ -421,8 +399,7 @@ class PositiveIndicatorsService:
         # Positive Indicator Report
         report = [
             "✓✓✓ Healthy Interest Coverage Ratio\n",
-            "Strong ability to service debt, reducing financial risk.",
-            "A high ratio indicates ample earnings to cover interest obligations, providing comfort to lenders and investors about the company's solvency and financial health.\n"
+            "Strong ability to service debt, reducing financial risk. A high ratio indicates ample earnings to cover interest obligations, providing comfort to lenders and investors about the company's solvency and financial health.\n"
         ]
         
         # Check if the trend is overall positive and if it starts from a healthy range
@@ -475,9 +452,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Accumulation of Cash Reserves\n",
-            "Improved liquidity and financial flexibility, enabling the company to invest in growth opportunities,",
-            "weather economic downturns, or return value to shareholders through dividends or buybacks.",
-            "A strong cash position enhances strategic options.\n"
+            "Improved liquidity and financial flexibility, enabling the company to invest in growth opportunities, weather economic downturns, or return value to shareholders through dividends or buybacks. A strong cash position enhances strategic options.\n"
         ]
 
         # Track if any year meets the criteria
@@ -528,8 +503,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Reduction in Operating Expenses\n",
-            "Enhanced operational efficiency, leading to higher profit margins.",
-            "Cost reductions without sacrificing revenue can indicate effective cost management and process improvements, contributing to sustainable profitability.\n"
+            "Enhanced operational efficiency, leading to higher profit margins. Cost reductions without sacrificing revenue can indicate effective cost management and process improvements, contributing to sustainable profitability.\n"
         ]
         
         for i in range(1, len(data)):
@@ -570,8 +544,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Positive Changes in Working Capital\n",
-            "Improved short-term financial health, suggesting effective management of receivables, payables, and inventory.",
-            "Positive changes can enhance liquidity, reduce reliance on external financing, and indicate operational efficiency.\n"
+            "Improved short-term financial health, suggesting effective management of receivables, payables, and inventory. Positive changes can enhance liquidity, reduce reliance on external financing, and indicate operational efficiency.\n"
         ]
 
         improvement_found = False
@@ -610,8 +583,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Investment in Capital Expenditures (CapEx)\n",
-            "Commitment to future growth and competitiveness through investment in assets.",
-            "Increased CapEx can signal expansion, modernization, or entry into new markets, potentially leading to higher future revenues and market share.\n"
+            "Commitment to future growth and competitiveness through investment in assets. Increased CapEx can signal expansion, modernization, or entry into new markets, potentially leading to higher future revenues and market share.\n"
         ]
 
         improvement_found = False
@@ -647,8 +619,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Strong Operating Cash Flow\n",
-            "Robust core business performance, indicating that the company's operations are generating sufficient cash.",
-            "This provides a solid foundation for growth and financial stability without relying on external financing.\n"
+            "Robust core business performance, indicating that the company's operations are generating sufficient cash. This provides a solid foundation for growth and financial stability without relying on external financing.\n"
         ]
 
         improvement_found = False
@@ -687,8 +658,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Decreasing Days Payable Outstanding (DPO)\n",
-            "Strengthened supplier relationships and potential cost savings, as timely payments can lead to better terms or discounts.",
-            "A balance is necessary to maintain optimal cash flow management without straining liquidity.\n"
+            "Strengthened supplier relationships and potential cost savings, as timely payments can lead to better terms or discounts. A balance is necessary to maintain optimal cash flow management without straining liquidity.\n"
         ]
 
         improvement_found = False
@@ -724,8 +694,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Increase in Deferred Revenue\n",
-            "Future revenue assurance, as deferred revenue represents payments received for services or products to be delivered.",
-            "An increase suggests strong sales and customer commitment, providing predictability in future earnings.\n"
+            "Future revenue assurance, as deferred revenue represents payments received for services or products to be delivered. An increase suggests strong sales and customer commitment, providing predictability in future earnings.\n"
         ]
 
         improvement_found = False
@@ -761,8 +730,7 @@ class PositiveIndicatorsService:
         # Generate detailed report
         report = [
             "✓✓✓ Patent Acquisitions or R&D Investments\n",
-            "Investment in innovation and long-term growth, positioning the company to develop new products or improve existing ones.",
-            "This can lead to competitive advantages, entry into new markets, and enhanced profitability through proprietary technologies.\n"
+            "Investment in innovation and long-term growth, positioning the company to develop new products or improve existing ones. This can lead to competitive advantages, entry into new markets, and enhanced profitability through proprietary technologies.\n"
         ]
 
         improvement_found = False
@@ -783,4 +751,3 @@ class PositiveIndicatorsService:
             return None
         
         return "\n".join(report)
-    
